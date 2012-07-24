@@ -20,7 +20,7 @@ struct timeval start, end;
 
 
 void test_error(char * file, int line, char * message, int val){
-  fprintf(stderr, "%s: %d; %s: %d\n", 
+  fprintf(stderr, "#%s: %d; %s: %d\n", 
 	  file, line, message, val);
 }
 
@@ -72,7 +72,7 @@ int main()
 
   long long k=0;
   
-  printf("RAND_MAX: %ld\n", RAND_MAX);
+  printf("#RAND_MAX: %ld\n", RAND_MAX);
 
   //Initialize
   for(i=0; i<max; i++){
@@ -80,7 +80,7 @@ int main()
     indices[i] = ((unsigned long)rand()) % max;
   }
 
-  printf("Memory used: %1f MB\n", ((double) (max * sizeof(uint32_t)))/(1024.0 * 1024.0));
+  printf("#Memory used: %1f MB\n", ((double) (max * sizeof(uint32_t)))/(1024.0 * 1024.0));
   
   long long value;
   int EventSet = PAPI_NULL;
@@ -148,21 +148,22 @@ int main()
   };
   
   char *native_names[] = {
-    "MEM_LOAD_LLC_HIT_RETIRED",
-    //    "MEM_TRANS_RETIRED:L3_HIT",
-    //    "MEM_TRANS_RETIRED",
+    "MEM_TRANS_RETIRED:L3_HIT",
+    "MEM_TRANS_RETIRED",
     "MEM_LOAD_RETIRED",
     //"OFFCORE_RESPONSE_0:PF_DATA_RD:ANY_RESPONSE",
     "HW_PRE_REQ",
     "HW_PRE_REQ:L1D_MISS"
     "ix86arch::LLC_REFERENCES",
     "ix86arch::LLC_MISSES",
+    "perf::PERF_COUNT_HW_CACHE_L1D",
     "perf::PERF_COUNT_HW_CACHE_L1D:READ",
     "perf::PERF_COUNT_HW_CACHE_L1D:WRITE",
     "perf::PERF_COUNT_HW_CACHE_L1D:PREFETCH",
     "perf::PERF_COUNT_HW_CACHE_L1D:ACCESS",
     "perf::PERF_COUNT_HW_CACHE_L1D:MISS",
     "perf::PERF_COUNT_HW_CACHE_LL",
+    "perf::PERF_COUNT_HW_CACHE_NODE",
     "perf::PERF_COUNT_HW_CACHE_NODE:READ",
     "perf::PERF_COUNT_HW_CACHE_NODE:WRITE",
     "perf::PERF_COUNT_HW_CACHE_NODE:PREFETCH",
@@ -176,11 +177,33 @@ int main()
     "L2_LINES_IN:E",
     "L2_LINES_IN:I",
     "L2_LINES_IN:S",
+    "L2_LINES_OUT",
     "L2_LINES_OUT:DEMAND_CLEAN",
     "L2_LINES_OUT:DEMAND_DIRTY",
     "L2_LINES_OUT:PREFETCH_CLEAN",
     "L2_LINES_OUT:PREFETCH_DIRTY",
     "L2_LINES_OUT:DIRTY_ANY",
+    "L2_RQSTS",
+    "L2_RQSTS:ALL_DEMAND_DATA_RD",
+    "L2_RQSTS:ALL_DEMAND_DATA_HIT",
+    "L2_RQSTS:ALL_PF",
+    "L2_RQSTS:PF_HIT",
+    "L2_RQSTS:PF_MISS",
+    "L2_RQSTS:RFO_ANY",
+    "L2_RQSTS:RFO_HITS",
+    "L2_RQSTS:RFO_MISS",
+    "LLC_REFERENCES",
+    "LLC_MISSES",
+    "L3_LAT_CACHE",
+    "L3_LAT_CACHE:MISS",
+    "L3_LAT_CACHE:REFERENCE",
+    "MEM_LOAD_LLC_HIT_RETIRED",
+    "OFFCORE_REQUESTS",
+    "OFFCORE_REQUESTS:ALL_DATA_READ",
+    "OFFCORE_REQUESTS:DEMAND_DATA_RD",
+    "UNHALTED_CORE_CYCLES",
+    "UNHALTED_REFERENCE_CYCLES",
+    
     0
   };
 
@@ -194,11 +217,13 @@ int main()
   if ( ( retval = PAPI_create_eventset( &EventSet ) ) != PAPI_OK )
     test_fail( __FILE__, __LINE__, "PAPI_create_eventset", retval );
 
+
+  printf("event\taccess\ttime\tcount\n");
  
   for ( event = 0; native_names[event] != NULL; event++ ) {
   //for ( event = 0; eventlist[event] != 0; event++ ) {
 
-    printf("testing %s\n", native_names[event]);
+    printf("#testing %s\n", native_names[event]);
   
     retval = PAPI_event_name_to_code( native_names[event], &native_code );
     if ( retval != PAPI_OK ){
@@ -215,7 +240,7 @@ int main()
       continue;
     }
 
-    printf( "\nEvent: %s\nShort: %s\nLong: %s\n",
+    printf( "#Event: %s\n#Short: %s\n#Long: %s\n",
 	    evinfo.symbol, evinfo.short_descr, evinfo.long_descr );
     //printf( "       Bytes\t\tCold\t\tWarm\tPercent\n" );
    
@@ -251,7 +276,9 @@ int main()
       
       double t2 =  (end.tv_sec + (end.tv_usec/1000000.0)) - (start.tv_sec + (start.tv_usec/1000000.0));
 
-      printf("event:\t%s,\taccess:\t%s,\ttime:\t%lf,\tvalue:\t%lld\n", 
+      //printf("event:\t%s,\taccess:\t%s,\ttime:\t%lf,\tvalue:\t%lld\n", 
+      //descr, access_names[access], t2, value);
+      printf("%s\t%s\t%lf\t%lld\n", 
 	     descr, access_names[access], t2, value);
     }
     if ( ( retval =
