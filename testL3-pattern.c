@@ -14,6 +14,11 @@ long long max = (MULT * INTS_IN_L3);
 uint32_t readValue, p;
 //Step by 64k -- 64k = 2048 ints
 uint32_t delta = 8192;
+int EventSet = PAPI_NULL;
+int retval;
+long long value;
+char descr[PAPI_MAX_STR_LEN];
+
 
 volatile long long i, n;
 struct timeval start, end;
@@ -64,6 +69,47 @@ void access_linear(){
   }
 }
 
+void do_event(){
+  int access;
+  char *access_names[] = {
+    "pattern",
+    "random",
+    "linear"
+  };
+  for(access = 0; access <= 2; access++){
+    if ( ( retval = PAPI_start( EventSet ) ) != PAPI_OK )
+      test_fail( __FILE__, __LINE__, "PAPI_start", retval );
+   
+    gettimeofday(&start, NULL);
+    switch(access){
+    case 0:
+      access_pattern();
+      break;
+    case 1:
+      access_random();
+      break;
+    case 2:
+      access_linear();
+      break;
+    }
+    gettimeofday(&end, NULL);
+      
+    if ( ( retval = PAPI_read( EventSet, &value ) ) != PAPI_OK )
+      test_fail( __FILE__, __LINE__, "PAPI_read", retval );
+      
+    if ( ( retval = PAPI_stop( EventSet, NULL ) ) != PAPI_OK )
+      test_fail( __FILE__, __LINE__, "PAPI_stop", retval );
+      
+    double t2 =  (end.tv_sec + (end.tv_usec/1000000.0)) - (start.tv_sec + (start.tv_usec/1000000.0));
+
+    //printf("event:\t%s,\taccess:\t%s,\ttime:\t%lf,\tvalue:\t%lld\n", 
+    //descr, access_names[access], t2, value);
+    printf("%s\t%s\t%lf\t%lld\n", 
+	   descr, access_names[access], t2, value);
+  }
+
+}
+
 int main()
 {
   
@@ -82,15 +128,12 @@ int main()
 
   printf("#Memory used: %1f MB\n", ((double) (max * sizeof(uint32_t)))/(1024.0 * 1024.0));
   
-  long long value;
-  int EventSet = PAPI_NULL;
   int event;
-  int retval;
-  char descr[PAPI_MAX_STR_LEN];
   PAPI_event_info_t evinfo;
   
   int eventlist[] = {
     PAPI_L1_DCA,
+    PAPI_L1_TCM,
     PAPI_L1_DCM,
     PAPI_L1_DCH,
     PAPI_L2_DCA,
@@ -108,7 +151,6 @@ int main()
     PAPI_L1_DCR,
     PAPI_L1_DCW,
     PAPI_L1_ICM,
-    PAPI_L1_TCM,
     PAPI_LD_INS,
     PAPI_SR_INS,
     PAPI_LST_INS,
@@ -220,6 +262,29 @@ int main()
 
   printf("event\taccess\ttime\tcount\n");
  
+  for ( event = 0; eventlist[event] != 0; event++ ) {
+
+    if ( PAPI_get_event_info( eventlist[event],  &evinfo ) != PAPI_OK )
+    test_fail( __FILE__, __LINE__, "PAPI_get_event_info", retval );
+   
+    PAPI_event_code_to_name( eventlist[event], descr );
+    printf("#testing %s\n", descr);
+
+    if ( PAPI_add_event( EventSet, eventlist[event] ) != PAPI_OK ){
+      fprintf(stderr, "failed to add %s\n", descr);
+      continue;
+    }
+
+    printf( "#Event: %s\n#Short: %s\n#Long: %s\n",
+	    evinfo.symbol, evinfo.short_descr, evinfo.long_descr );
+
+    do_event();
+   
+    if ( ( retval =
+	   PAPI_remove_event( EventSet, eventlist[event] ) ) != PAPI_OK )
+      test_fail( __FILE__, __LINE__, "PAPI_remove_event", retval );
+  }
+
   for ( event = 0; native_names[event] != NULL; event++ ) {
   //for ( event = 0; eventlist[event] != 0; event++ ) {
 
@@ -242,45 +307,9 @@ int main()
 
     printf( "#Event: %s\n#Short: %s\n#Long: %s\n",
 	    evinfo.symbol, evinfo.short_descr, evinfo.long_descr );
-    //printf( "       Bytes\t\tCold\t\tWarm\tPercent\n" );
-   
-    int access;
-    char *access_names[] = {
-      "pattern",
-      "random",
-      "linear"
-    };
-    for(access = 0; access <= 2; access++){
-      if ( ( retval = PAPI_start( EventSet ) ) != PAPI_OK )
-	test_fail( __FILE__, __LINE__, "PAPI_start", retval );
-   
-      gettimeofday(&start, NULL);
-      switch(access){
-      case 0:
-	access_pattern();
-	break;
-      case 1:
-	access_random();
-	break;
-      case 2:
-	access_linear();
-	break;
-      }
-      gettimeofday(&end, NULL);
-      
-      if ( ( retval = PAPI_read( EventSet, &value ) ) != PAPI_OK )
-	test_fail( __FILE__, __LINE__, "PAPI_read", retval );
-      
-      if ( ( retval = PAPI_stop( EventSet, NULL ) ) != PAPI_OK )
-	test_fail( __FILE__, __LINE__, "PAPI_stop", retval );
-      
-      double t2 =  (end.tv_sec + (end.tv_usec/1000000.0)) - (start.tv_sec + (start.tv_usec/1000000.0));
 
-      //printf("event:\t%s,\taccess:\t%s,\ttime:\t%lf,\tvalue:\t%lld\n", 
-      //descr, access_names[access], t2, value);
-      printf("%s\t%s\t%lf\t%lld\n", 
-	     descr, access_names[access], t2, value);
-    }
+    do_event();
+   
     if ( ( retval =
 	   PAPI_remove_event( EventSet, native_code ) ) != PAPI_OK )
       test_fail( __FILE__, __LINE__, "PAPI_remove_event", retval );
