@@ -4,6 +4,10 @@
 #include<time.h>
 #include <papi.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #define MULT 20
 #define INTS_IN_L3 (1024*1024*20/sizeof(int))
 
@@ -18,6 +22,10 @@ int EventSet = PAPI_NULL;
 int retval;
 long long value;
 char descr[PAPI_MAX_STR_LEN];
+
+#ifdef _OPENMP
+  int numThreads, thread;
+#endif
 
 
 volatile long long i, n;
@@ -35,6 +43,9 @@ void test_fail(char * file, int line, char * message, int val){
 }
 
 void access_pattern(){
+#ifdef _OPENMP
+#pragma omp parallel for private(n, i)
+#endif
   for(n=0; n<delta; n++){
     for(i=n; i<max; i+=delta){
       //Access a[max - i], followed by a[i]
@@ -48,6 +59,9 @@ void access_pattern(){
 
 void access_random(){
   int index1, index2;
+#ifdef _OPENMP
+#pragma omp parallel for private(n, i)
+#endif
   for(i=0; i<max; i++){
     //Access a[max - i], followed by a[i]
     index1 = indices[i];
@@ -60,6 +74,9 @@ void access_random(){
 }
 
 void access_linear(){
+#ifdef _OPENMP
+#pragma omp parallel for private(n, i)
+#endif
   for(i=0; i<max; i++){
     //Access a[max - i], followed by a[i]
     readValue = arrMuchBiggerThanL3[max-i];
@@ -104,15 +121,29 @@ void do_event(){
 
     //printf("event:\t%s,\taccess:\t%s,\ttime:\t%lf,\tvalue:\t%lld\n", 
     //descr, access_names[access], t2, value);
-    printf("%s\t%s\t%lf\t%lld\n", 
-	   descr, access_names[access], t2, value);
+    printf("%s\t%s\t%lf\t%lld\t%d\n", 
+	   descr, access_names[access], t2, value, numThreads);
   }
 
 }
 
 int main()
 {
-  
+#ifdef _OPENMP
+  printf("#OPENMP in effect\n");
+#endif
+
+#ifdef _OPENMP
+#pragma omp parallel
+  {
+    if(!omp_get_thread_num()){
+      numThreads = omp_get_num_threads();
+      printf("#%d threads\n", numThreads);
+    }
+  }
+#endif
+
+
   arrMuchBiggerThanL3 = (uint32_t*)malloc((max) * sizeof(uint32_t));
   indices = (int*)malloc((max) * sizeof(int));
 
@@ -260,7 +291,7 @@ int main()
     test_fail( __FILE__, __LINE__, "PAPI_create_eventset", retval );
 
 
-  printf("event\taccess\ttime\tcount\n");
+  printf("event\taccess\ttime\tcount\tthreads\n");
  
   for ( event = 0; eventlist[event] != 0; event++ ) {
 
