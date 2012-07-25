@@ -3,6 +3,7 @@
 #include<stdlib.h>
 #include<time.h>
 #include <papi.h>
+#include <assert.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -20,11 +21,10 @@ uint32_t readValue, p;
 uint32_t delta = 8192;
 int EventSet = PAPI_NULL;
 int retval;
-long long value;
 char descr[PAPI_MAX_STR_LEN];
 
 #ifdef _OPENMP
-  int numThreads, thread;
+int numThreads, thread;
 #endif
 
 
@@ -33,28 +33,28 @@ struct timeval start, end;
 
 
 void test_error(char * file, int line, char * message, int val){
-  fprintf(stderr, "#%s: %d; %s: %d\n", 
+fprintf(stderr, "#%s: %d; %s: %d\n", 
 	  file, line, message, val);
 }
 
 void test_fail(char * file, int line, char * message, int val){
-  test_error(file, line, message, val);
-  exit(1);  
+test_error(file, line, message, val);
+exit(1);  
 }
 
 void access_pattern(){
 #ifdef _OPENMP
 #pragma omp parallel for private(n, i)
 #endif
-  for(n=0; n<delta; n++){
-    for(i=n; i<max; i+=delta){
-      //Access a[max - i], followed by a[i]
-      readValue = arrMuchBiggerThanL3[max-i];
-      p = arrMuchBiggerThanL3[i];
-      p += readValue;
-      arrMuchBiggerThanL3[i] = p;
-    }
+for(n=0; n<delta; n++){
+  for(i=n; i<max; i+=delta){
+    //Access a[max - i], followed by a[i]
+    readValue = arrMuchBiggerThanL3[max-i];
+    p = arrMuchBiggerThanL3[i];
+    p += readValue;
+    arrMuchBiggerThanL3[i] = p;
   }
+ }
 }
 
 void access_random(){
@@ -87,12 +87,24 @@ void access_linear(){
 }
 
 void do_event(){
+  long long *values = 0;
   int access;
+  int event;
   char *access_names[] = {
     "pattern",
     "random",
     "linear"
   };
+  int numEvents = PAPI_num_events(EventSet);
+
+  if(!numEvents)
+    return;
+
+  printf("#numEvents: %d\n", numEvents);
+
+  values = (long long *)malloc(sizeof(long long) * numEvents);
+  assert(values);
+
   for(access = 0; access <= 2; access++){
     if ( ( retval = PAPI_start( EventSet ) ) != PAPI_OK )
       test_fail( __FILE__, __LINE__, "PAPI_start", retval );
@@ -110,25 +122,66 @@ void do_event(){
       break;
     }
     gettimeofday(&end, NULL);
-      
-    if ( ( retval = PAPI_read( EventSet, &value ) ) != PAPI_OK )
+
+    if ( ( retval = PAPI_read( EventSet, values ) ) != PAPI_OK ){
+      free(values);
       test_fail( __FILE__, __LINE__, "PAPI_read", retval );
-      
-    if ( ( retval = PAPI_stop( EventSet, NULL ) ) != PAPI_OK )
+    }
+ 
+    if ( ( retval = PAPI_stop( EventSet, NULL ) ) != PAPI_OK ){
+      free(values);
       test_fail( __FILE__, __LINE__, "PAPI_stop", retval );
+    }
       
     double t2 =  (end.tv_sec + (end.tv_usec/1000000.0)) - (start.tv_sec + (start.tv_usec/1000000.0));
 
     //printf("event:\t%s,\taccess:\t%s,\ttime:\t%lf,\tvalue:\t%lld\n", 
     //descr, access_names[access], t2, value);
-    printf("%s\t%s\t%lf\t%lld\t%d\n", 
-	   descr, access_names[access], t2, value, numThreads);
-  }
+    printf("%s\t%s\t%lf\t%d", 
+	   descr, access_names[access], t2, numThreads);
+    for(event = 0; event < numEvents; event++)
+      printf("\t%lld", values[event]);
+    printf("\n");
 
+    fflush(stdout);
+  }
+  free(values);
 }
 
-int main()
-{
+void chooseEvents(int *eventlist, int *mask, int *remaining, char ** eventNames, 
+		  int numEvents){
+  int setSize = 0, event;
+  for ( event = 0; event < numEvents; event++ ) {
+    if(!eventlist[event] || mask[event])
+      continue;
+    if (PAPI_add_event( EventSet, eventlist[event] ) != PAPI_OK ){
+      if(!setSize){
+	fprintf(stderr, "failed to add %s\n", eventNames[event]);
+	mask[event] = 1;
+	(*remaining)--;
+	return;
+      }
+      continue;
+    }
+    mask[event] = 1;
+    (*remaining)--;
+    setSize++;
+  }
+  /*
+    if ( PAPI_get_event_info( eventlist[event],  &evinfo ) != PAPI_OK )
+      test_fail( __FILE__, __LINE__, "PAPI_get_event_info", retval );
+   
+    printf("#testing %s\n", descr);
+
+
+    printf( "#Event: %s\n#Short: %s\n#Long: %s\n",
+	    evinfo.symbol, evinfo.short_descr, evinfo.long_descr );
+
+  }
+  */
+}
+
+int main(){
 #ifdef _OPENMP
   printf("#OPENMP in effect\n");
 #endif
@@ -136,11 +189,11 @@ int main()
 #ifdef _OPENMP
 #pragma omp parallel
   {
-    if(!omp_get_thread_num()){
-      numThreads = omp_get_num_threads();
-      printf("#%d threads\n", numThreads);
-    }
-  }
+  if(!omp_get_thread_num()){
+  numThreads = omp_get_num_threads();
+  printf("#%d threads\n", numThreads);
+}
+}
 #endif
 
 
@@ -159,6 +212,10 @@ int main()
 
   printf("#Memory used: %1f MB\n", ((double) (max * sizeof(uint32_t)))/(1024.0 * 1024.0));
   
+  if ( ( retval =
+	 PAPI_library_init( PAPI_VER_CURRENT ) ) != PAPI_VER_CURRENT )
+    test_fail( __FILE__, __LINE__, "PAPI_library_init", retval );
+
   int event;
   PAPI_event_info_t evinfo;
   
@@ -174,6 +231,7 @@ int main()
     PAPI_L3_TCA,
     PAPI_L3_TCM,
     PAPI_TOT_INS,
+    PAPI_TOT_CYC,
     PAPI_STL_ICY,
     
 #if 0
@@ -219,12 +277,11 @@ int main()
 #endif
     0
   };
-  
+
   char *native_names[] = {
     "MEM_TRANS_RETIRED:L3_HIT",
     "MEM_TRANS_RETIRED",
     "MEM_LOAD_RETIRED",
-    //"OFFCORE_RESPONSE_0:PF_DATA_RD:ANY_RESPONSE",
     "HW_PRE_REQ",
     "HW_PRE_REQ:L1D_MISS"
     "ix86arch::LLC_REFERENCES",
@@ -279,56 +336,71 @@ int main()
     
     0
   };
+    
+  int native_code, *native_codes = 0;
+  int numNative = 0, numPreset = 0;
+  while(native_names[numNative]) numNative++;
+  while(eventlist[numPreset]) numPreset++;
 
-  int native_code;
+  char **preset_names = (char**)malloc(numPreset * sizeof(char*));
+  assert(preset_names);
+  for(event = 0; event < numPreset; event++){
+    preset_names[event] = (char*)malloc(PAPI_MAX_STR_LEN * sizeof(char));
+    assert(preset_names[event]);
+    PAPI_event_code_to_name( eventlist[event], preset_names[event]);
+  }
 
-  
-  if ( ( retval =
-	 PAPI_library_init( PAPI_VER_CURRENT ) ) != PAPI_VER_CURRENT )
-    test_fail( __FILE__, __LINE__, "PAPI_library_init", retval );
+  int *presetMask = 0, *nativeMask = 0;
+  presetMask = (int*)calloc(numPreset, sizeof(int));
+  nativeMask = (int*)calloc(numNative, sizeof(int));
+  native_codes = (int*)calloc(numNative, sizeof(int));
+  assert(nativeMask && presetMask && native_codes);
+
+  for(event = 0; event < numNative; event++){
+    retval = PAPI_event_name_to_code( native_names[event], &native_codes[event] );
+    if ( retval != PAPI_OK ){
+      test_error( __FILE__, __LINE__, "PAPI_event_name_to_code", retval );
+      continue;
+    }
+  }
+
+  int remainingNative = numNative;
+  int remainingPreset = numPreset;
 
   if ( ( retval = PAPI_create_eventset( &EventSet ) ) != PAPI_OK )
     test_fail( __FILE__, __LINE__, "PAPI_create_eventset", retval );
 
 
-  printf("event\taccess\ttime\tcount\tthreads\n");
+  printf("event\taccess\ttime\tthreads\tcount\n");
  
-  for ( event = 0; eventlist[event] != 0; event++ ) {
-
-    if ( PAPI_get_event_info( eventlist[event],  &evinfo ) != PAPI_OK )
-    test_fail( __FILE__, __LINE__, "PAPI_get_event_info", retval );
-   
-    PAPI_event_code_to_name( eventlist[event], descr );
-    printf("#testing %s\n", descr);
-
-    if ( PAPI_add_event( EventSet, eventlist[event] ) != PAPI_OK ){
-      fprintf(stderr, "failed to add %s\n", descr);
-      continue;
-    }
-
-    printf( "#Event: %s\n#Short: %s\n#Long: %s\n",
-	    evinfo.symbol, evinfo.short_descr, evinfo.long_descr );
-
+  while(remainingPreset){
+    chooseEvents(eventlist, presetMask, &remainingPreset, preset_names, 
+		 numPreset);
     do_event();
-   
+
     if ( ( retval =
-	   PAPI_remove_event( EventSet, eventlist[event] ) ) != PAPI_OK )
-      test_fail( __FILE__, __LINE__, "PAPI_remove_event", retval );
+	   PAPI_cleanup_eventset( EventSet ) ) != PAPI_OK )
+      test_fail( __FILE__, __LINE__, "PAPI_cleanup_eventset", retval );
   }
 
+  while(remainingNative){
+    chooseEvents(native_codes, nativeMask, &remainingNative, native_names,
+		 numNative);
+    do_event();
+
+    if ( ( retval =
+	   PAPI_cleanup_eventset( EventSet ) ) != PAPI_OK )
+      test_fail( __FILE__, __LINE__, "PAPI_cleanup_eventset", retval );
+  }
+
+  /*
   for ( event = 0; native_names[event] != NULL; event++ ) {
-  //for ( event = 0; eventlist[event] != 0; event++ ) {
 
     printf("#testing %s\n", native_names[event]);
   
-    retval = PAPI_event_name_to_code( native_names[event], &native_code );
-    if ( retval != PAPI_OK ){
-      test_error( __FILE__, __LINE__, "PAPI_event_name_to_code", retval );
-      continue;
-    }
 
     if ( PAPI_get_event_info( native_code,  &evinfo ) != PAPI_OK )
-    test_fail( __FILE__, __LINE__, "PAPI_get_event_info", retval );
+      test_fail( __FILE__, __LINE__, "PAPI_get_event_info", retval );
    
     PAPI_event_code_to_name( native_code, descr );
     if ( PAPI_add_event( EventSet, native_code ) != PAPI_OK ){
@@ -345,7 +417,8 @@ int main()
 	   PAPI_remove_event( EventSet, native_code ) ) != PAPI_OK )
       test_fail( __FILE__, __LINE__, "PAPI_remove_event", retval );
   }
-  
+  */
+
   if ( ( retval = PAPI_destroy_eventset( &EventSet ) ) != PAPI_OK )
     test_fail( __FILE__, __LINE__, "PAPI_destroy_eventset", retval );
   
