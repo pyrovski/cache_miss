@@ -86,7 +86,7 @@ void access_linear(){
   }
 }
 
-void do_event(){
+void do_event(int *mask, char ** eventNames){
   long long *values = 0;
   int access;
   int event;
@@ -101,7 +101,15 @@ void do_event(){
     return;
 
   printf("#numEvents: %d\n", numEvents);
-
+  i = 0;
+  printf("access\ttime\tthreads");
+  for(event = 0; event < numEvents; event++){
+    while(mask[i] != 2) i++;
+    printf("\t%s", eventNames[i]);
+    i++;
+  }
+  printf("\n");
+  
   values = (long long *)malloc(sizeof(long long) * numEvents);
   assert(values);
 
@@ -135,10 +143,8 @@ void do_event(){
       
     double t2 =  (end.tv_sec + (end.tv_usec/1000000.0)) - (start.tv_sec + (start.tv_usec/1000000.0));
 
-    //printf("event:\t%s,\taccess:\t%s,\ttime:\t%lf,\tvalue:\t%lld\n", 
-    //descr, access_names[access], t2, value);
-    printf("%s\t%s\t%lf\t%d", 
-	   descr, access_names[access], t2, numThreads);
+    printf("%s\t%lf\t%d", 
+	   access_names[access], t2, numThreads);
     for(event = 0; event < numEvents; event++)
       printf("\t%lld", values[event]);
     printf("\n");
@@ -151,19 +157,27 @@ void do_event(){
 void chooseEvents(int *eventlist, int *mask, int *remaining, char ** eventNames, 
 		  int numEvents){
   int setSize = 0, event;
-  for ( event = 0; event < numEvents; event++ ) {
-    if(!eventlist[event] || mask[event])
+  for ( event = 0; event < numEvents; event++ ){
+    if(mask[event])
+      mask[event] = 1;
+    if(!eventlist[event] && !mask[event]){
+      mask[event] = 1;
+      --*remaining;
+    }
+  }
+  for ( event = 0; event < numEvents; event++ ){
+    if(mask[event])
       continue;
     if (PAPI_add_event( EventSet, eventlist[event] ) != PAPI_OK ){
       if(!setSize){
-	fprintf(stderr, "failed to add %s\n", eventNames[event]);
+	fprintf(stderr, "#failed to add %s\n", eventNames[event]);
 	mask[event] = 1;
-	(*remaining)--;
+	--*remaining;
 	return;
       }
       continue;
     }
-    mask[event] = 1;
+    mask[event] = 2;
     (*remaining)--;
     setSize++;
   }
@@ -370,13 +384,10 @@ int main(){
   if ( ( retval = PAPI_create_eventset( &EventSet ) ) != PAPI_OK )
     test_fail( __FILE__, __LINE__, "PAPI_create_eventset", retval );
 
-
-  printf("event\taccess\ttime\tthreads\tcount\n");
- 
   while(remainingPreset){
     chooseEvents(eventlist, presetMask, &remainingPreset, preset_names, 
 		 numPreset);
-    do_event();
+    do_event(presetMask, preset_names);
 
     if ( ( retval =
 	   PAPI_cleanup_eventset( EventSet ) ) != PAPI_OK )
@@ -386,38 +397,12 @@ int main(){
   while(remainingNative){
     chooseEvents(native_codes, nativeMask, &remainingNative, native_names,
 		 numNative);
-    do_event();
+    do_event(nativeMask, native_names);
 
     if ( ( retval =
 	   PAPI_cleanup_eventset( EventSet ) ) != PAPI_OK )
       test_fail( __FILE__, __LINE__, "PAPI_cleanup_eventset", retval );
   }
-
-  /*
-  for ( event = 0; native_names[event] != NULL; event++ ) {
-
-    printf("#testing %s\n", native_names[event]);
-  
-
-    if ( PAPI_get_event_info( native_code,  &evinfo ) != PAPI_OK )
-      test_fail( __FILE__, __LINE__, "PAPI_get_event_info", retval );
-   
-    PAPI_event_code_to_name( native_code, descr );
-    if ( PAPI_add_event( EventSet, native_code ) != PAPI_OK ){
-      fprintf(stderr, "failed to add %s\n", descr);
-      continue;
-    }
-
-    printf( "#Event: %s\n#Short: %s\n#Long: %s\n",
-	    evinfo.symbol, evinfo.short_descr, evinfo.long_descr );
-
-    do_event();
-   
-    if ( ( retval =
-	   PAPI_remove_event( EventSet, native_code ) ) != PAPI_OK )
-      test_fail( __FILE__, __LINE__, "PAPI_remove_event", retval );
-  }
-  */
 
   if ( ( retval = PAPI_destroy_eventset( &EventSet ) ) != PAPI_OK )
     test_fail( __FILE__, __LINE__, "PAPI_destroy_eventset", retval );
