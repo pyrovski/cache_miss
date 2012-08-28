@@ -293,6 +293,7 @@ int main(){
   };
 
   char *native_names[] = {
+    "PACKAGE_ENERGY:PACKAGE0",
     "MEM_TRANS_RETIRED:L3_HIT",
     "MEM_TRANS_RETIRED",
     "MEM_LOAD_RETIRED",
@@ -347,7 +348,6 @@ int main(){
     "OFFCORE_REQUESTS:DEMAND_DATA_RD",
     "UNHALTED_CORE_CYCLES",
     "UNHALTED_REFERENCE_CYCLES",
-    
     0
   };
     
