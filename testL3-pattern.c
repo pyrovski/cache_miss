@@ -182,7 +182,7 @@ void chooseEvents(int *eventlist, int *mask, int *remaining, char ** eventNames,
     (*remaining)--;
     setSize++;
     // more than 4 events seems to cause negative values
-    if(setSize >= 4) break;
+    //if(setSize >= 4) break;
   }
   /*
     if ( PAPI_get_event_info( eventlist[event],  &evinfo ) != PAPI_OK )
@@ -219,7 +219,7 @@ int main(){
 
   long long k=0;
   
-  printf("#RAND_MAX: %ld\n", RAND_MAX);
+  printf("#RAND_MAX: %ld\n", (long)RAND_MAX);
 
   //Initialize
   for(i=0; i<max; i++){
