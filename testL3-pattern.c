@@ -23,8 +23,9 @@ int EventSet = PAPI_NULL;
 int retval;
 char descr[PAPI_MAX_STR_LEN];
 
+int numThreads;
 #ifdef _OPENMP
-int numThreads, thread;
+int thread;
 #endif
 
 
@@ -180,6 +181,8 @@ void chooseEvents(int *eventlist, int *mask, int *remaining, char ** eventNames,
     mask[event] = 2;
     (*remaining)--;
     setSize++;
+    // more than 4 events seems to cause negative values
+    if(setSize >= 4) break;
   }
   /*
     if ( PAPI_get_event_info( eventlist[event],  &evinfo ) != PAPI_OK )
@@ -230,10 +233,26 @@ int main(){
 	 PAPI_library_init( PAPI_VER_CURRENT ) ) != PAPI_VER_CURRENT )
     test_fail( __FILE__, __LINE__, "PAPI_library_init", retval );
 
+#ifdef _OPENMP
+  if((retval = PAPI_thread_init(&omp_get_thread_num)) != PAPI_OK)
+    test_fail( __FILE__, __LINE__, "PAPI_thread_init", retval );
+#endif
   int event;
   PAPI_event_info_t evinfo;
   
   int eventlist[] = {
+    PAPI_L3_TCM,
+    PAPI_L3_DCA,
+    PAPI_L3_TCA,
+    PAPI_L3_DCR,
+    PAPI_LD_INS,
+    PAPI_TOT_CYC,
+    PAPI_STL_ICY,
+    PAPI_TOT_INS,
+    PAPI_L2_DCA,
+    PAPI_L2_DCM,
+    PAPI_L1_DCM,
+    /*
     PAPI_L1_DCA,
     PAPI_L1_TCM,
     PAPI_L1_DCM,
@@ -247,7 +266,7 @@ int main(){
     PAPI_TOT_INS,
     PAPI_TOT_CYC,
     PAPI_STL_ICY,
-    
+    */    
 #if 0
     PAPI_L1_LDM,
     PAPI_L1_STM,
