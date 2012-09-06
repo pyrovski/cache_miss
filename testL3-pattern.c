@@ -240,79 +240,94 @@ int main(){
   int event;
   PAPI_event_info_t evinfo;
   
-  int eventlist[] = {
-    PAPI_L3_TCM,
-    PAPI_L3_DCA,
-    PAPI_L3_TCA,
-    PAPI_L3_DCR,
-    PAPI_LD_INS,
-    PAPI_TOT_CYC,
-    PAPI_STL_ICY,
-    PAPI_TOT_INS,
-    PAPI_L2_DCA,
-    PAPI_L2_DCM,
-    PAPI_L1_DCM,
+  char* preset_names[] = {
+    "PAPI_L3_TCM",
+    "PAPI_L3_DCA",
+    "PAPI_L3_TCA",
+    "PAPI_L3_DCR",
+    "PAPI_LD_INS",
+    "PAPI_TOT_CYC",
+    "PAPI_STL_ICY",
+    "PAPI_TOT_INS",
+    "PAPI_L2_DCA",
+    "PAPI_L2_DCM",
+    "PAPI_L1_DCM",
     /*
-    PAPI_L1_DCA,
-    PAPI_L1_TCM,
-    PAPI_L1_DCM,
-    PAPI_L1_DCH,
-    PAPI_L2_DCA,
-    PAPI_L2_DCM,
-    PAPI_L2_DCH,
-    PAPI_L3_DCA,
-    PAPI_L3_TCA,
-    PAPI_L3_TCM,
-    PAPI_TOT_INS,
-    PAPI_TOT_CYC,
-    PAPI_STL_ICY,
+    "PAPI_L1_DCA",
+    "PAPI_L1_TCM",
+    "PAPI_L1_DCM",
+    "PAPI_L1_DCH",
+    "PAPI_L2_DCA",
+    "PAPI_L2_DCM",
+    "PAPI_L2_DCH",
+    "PAPI_L3_DCA",
+    "PAPI_L3_TCA",
+    "PAPI_L3_TCM",
+    "PAPI_TOT_INS",
+    "PAPI_TOT_CYC",
+    "PAPI_STL_ICY",
     */    
 #if 0
-    PAPI_L1_LDM,
-    PAPI_L1_STM,
-    PAPI_L1_DCR,
-    PAPI_L1_DCW,
-    PAPI_L1_ICM,
-    PAPI_LD_INS,
-    PAPI_SR_INS,
-    PAPI_LST_INS,
-    PAPI_L2_DCR,
-    PAPI_L2_DCW,
-    PAPI_CSR_TOT,
-    PAPI_MEM_SCY,
-    PAPI_MEM_RCY,
-    PAPI_MEM_WCY,
-    PAPI_L1_ICH,
-    PAPI_L1_ICA,
-    PAPI_L1_ICR,
-    PAPI_L1_ICW,
-    PAPI_L1_TCH,
-    PAPI_L1_TCA,
-    PAPI_L1_TCR,
-    PAPI_L1_TCW,
-    PAPI_L2_DCM,
-    PAPI_L2_ICM,
-    PAPI_L2_TCM,
-    PAPI_L2_LDM,
-    PAPI_L2_STM,
-    PAPI_L2_DCH,
-    PAPI_L2_DCA,
-    PAPI_L2_DCR,
-    PAPI_L2_DCW,
-    PAPI_L2_ICH,
-    PAPI_L2_ICA,
-    PAPI_L2_ICR,
-    PAPI_L2_ICW,
-    PAPI_L2_TCH,
-    PAPI_L2_TCA,
-    PAPI_L2_TCR,
-    PAPI_L2_TCW,
+    "PAPI_L1_LDM",
+    "PAPI_L1_STM",
+    "PAPI_L1_DCR",
+    "PAPI_L1_DCW",
+    "PAPI_L1_ICM",
+    "PAPI_LD_INS",
+    "PAPI_SR_INS",
+    "PAPI_LST_INS",
+    "PAPI_L2_DCR",
+    "PAPI_L2_DCW",
+    "PAPI_CSR_TOT",
+    "PAPI_MEM_SCY",
+    "PAPI_MEM_RCY",
+    "PAPI_MEM_WCY",
+    "PAPI_L1_ICH",
+    "PAPI_L1_ICA",
+    "PAPI_L1_ICR",
+    "PAPI_L1_ICW",
+    "PAPI_L1_TCH",
+    "PAPI_L1_TCA",
+    "PAPI_L1_TCR",
+    "PAPI_L1_TCW",
+    "PAPI_L2_DCM",
+    "PAPI_L2_ICM",
+    "PAPI_L2_TCM",
+    "PAPI_L2_LDM",
+    "PAPI_L2_STM",
+    "PAPI_L2_DCH",
+    "PAPI_L2_DCA",
+    "PAPI_L2_DCR",
+    "PAPI_L2_DCW",
+    "PAPI_L2_ICH",
+    "PAPI_L2_ICA",
+    "PAPI_L2_ICR",
+    "PAPI_L2_ICW",
+    "PAPI_L2_TCH",
+    "PAPI_L2_TCA",
+    "PAPI_L2_TCR",
+    "PAPI_L2_TCW",
 #endif
     0
   };
 
   char *native_names[] = {
-    "PACKAGE_ENERGY:PACKAGE0",
+    "PAPI_L2_DCM",
+    //"LAST_LEVEL_CACHE_REFERENCES",
+    //"L2_RQSTS:CODE_RD_MISS",
+    "PAPI_TOT_CYC",
+#if 0
+    "PAPI_L3_TCM",
+    "PAPI_L3_DCA",
+    "PAPI_L3_TCA",
+    "PAPI_L3_DCR",
+
+    "PAPI_LD_INS",
+    "PAPI_STL_ICY",
+    "PAPI_TOT_INS",
+    "PAPI_L2_DCA",
+    "PAPI_L1_DCM",
+//
     "MEM_TRANS_RETIRED:L3_HIT",
     "MEM_TRANS_RETIRED",
     "MEM_LOAD_RETIRED",
@@ -367,27 +382,34 @@ int main(){
     "OFFCORE_REQUESTS:DEMAND_DATA_RD",
     "UNHALTED_CORE_CYCLES",
     "UNHALTED_REFERENCE_CYCLES",
+    "PACKAGE_ENERGY:PACKAGE0",
+#endif
     0
   };
     
   int native_code, *native_codes = 0;
   int numNative = 0, numPreset = 0;
-  while(native_names[numNative]) numNative++;
-  while(eventlist[numPreset]) numPreset++;
-
-  char **preset_names = (char**)malloc(numPreset * sizeof(char*));
-  assert(preset_names);
-  for(event = 0; event < numPreset; event++){
-    preset_names[event] = (char*)malloc(PAPI_MAX_STR_LEN * sizeof(char));
-    assert(preset_names[event]);
-    PAPI_event_code_to_name( eventlist[event], preset_names[event]);
-  }
-
   int *presetMask = 0, *nativeMask = 0;
+  int *preset_codes = 0;
+
+  while(native_names[numNative]) numNative++;
+  while(preset_names[numPreset]) numPreset++;
+
+  preset_codes = (int*)calloc(numPreset, sizeof(int));
+  native_codes = (int*)calloc(numNative, sizeof(int));
   presetMask = (int*)calloc(numPreset, sizeof(int));
   nativeMask = (int*)calloc(numNative, sizeof(int));
-  native_codes = (int*)calloc(numNative, sizeof(int));
-  assert(nativeMask && presetMask && native_codes);
+
+  assert(nativeMask && presetMask && native_codes && preset_codes);
+
+  for(event = 0; event < numPreset; event++){
+    retval = PAPI_event_name_to_code(preset_names[event], &preset_codes[event]);
+    if ( retval != PAPI_OK ){
+      test_error( __FILE__, __LINE__, "PAPI_event_name_to_code", retval );
+      continue;
+    }
+  }
+
 
   for(event = 0; event < numNative; event++){
     retval = PAPI_event_name_to_code( native_names[event], &native_codes[event] );
@@ -404,7 +426,7 @@ int main(){
     test_fail( __FILE__, __LINE__, "PAPI_create_eventset", retval );
 
   while(remainingPreset){
-    chooseEvents(eventlist, presetMask, &remainingPreset, preset_names, 
+    chooseEvents(preset_codes, presetMask, &remainingPreset, preset_names, 
 		 numPreset);
     do_event(presetMask, preset_names);
 
