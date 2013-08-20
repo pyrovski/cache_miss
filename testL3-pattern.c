@@ -98,7 +98,7 @@ void do_event(int *mask, char ** eventNames){
   };
   int numEvents = PAPI_num_events(EventSet);
 
-  if(!numEvents)
+  if(numEvents <= 0)
     return;
 
   printf("#numEvents: %d\n", numEvents);
